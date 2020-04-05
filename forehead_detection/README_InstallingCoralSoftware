@@ -1,0 +1,9 @@
+To run this part of the repository you will need a few packages for the coral board. The steps to install them is as follows:
+
+Step 1: Load edgetpu (the software for coral) on the pi using this link: https://coral.ai/docs/accelerator/get-started/
+You will only need to follow the instructions given for Linux. 
+
+Step 2: The above installation does not work directly for RPi 4. This is because it is not on the list of devices in the install.sh 
+file. Follow all the steps on the following link to fix it: https://github.com/leswright1977/RPi4-Google-Coral/
+
+Step 3: Plug the coral accelerator into the pi. If it was already connected then unplug and replug.
