@@ -1,7 +1,7 @@
 # AutoTriage
 Automatic triage for COVID-19 with minimal physical contact and attention
 
-## Hardware Requirement
+## Hardware Requirements
 1. RaspPi 4 4G
 2. FLIR Lepton 3.5 thermal camera 
 3. PureThermal i/o borad for Lepton camera
