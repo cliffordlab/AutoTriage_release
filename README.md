@@ -1,5 +1,5 @@
 # AutoTriage
-Automatic triage for COVID-19 with minimal physical contact and attention
+AutoTriage - An Open Source Edge Computing Raspberry Pi-based Clinical Screening System
 
 ## Hardware Requirements
 1. RaspPi 4 4G
