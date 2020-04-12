@@ -94,7 +94,7 @@ def draw_lip_bounding_box(input_img, lip_keypoints, cyan_pred):
     COLOR_GR = (0,255,0)
     
     for i in range(10):
-        if lip_keypoints[i][0][1]==0 or len(cyan_pred)==0:
+        if lip_keypoints[i][0][1]==0 or len(cyan_pred)<=i:
             continue
         if cyan_pred[i][0] == 1:
             cv2.rectangle(img_out, lip_keypoints[i][0], lip_keypoints[i][1], COLOR_RED, 2)
