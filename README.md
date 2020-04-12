@@ -1,7 +1,7 @@
 # AutoTriage
-Automatic triage for COVID-19 with minimal physical contact and attention
+AutoTriage - An Open Source Edge Computing Raspberry Pi-based Clinical Screening System
 
-## Hardware Requirement
+## Hardware Requirements
 1. RaspPi 4 4G
 2. FLIR Lepton 3.5 thermal camera 
 3. PureThermal i/o borad for Lepton camera
@@ -15,3 +15,6 @@ python3, gstreamer, v4l2, tflite, opencv are required.
 Install latest NOOBs, enable camera.  
 use the script: `setup.sh` to install the prerequisites.
 run `measure.py` for detecting and displaying. After forced stop/ errors, `kill -9 $(pidof gst-launch-1.0)` should be used to reset the thermal camera before the next run. 
+
+Please cite thge following when using:
+Chaitra Hegde, Zifan Jiang, Jacob Zelko, Pradyumna Byappanahalli Suresha, Rishikesan Kamaleswaran, Matt A. Reyna and Gari D. Clifford, AutoTriage - An Open Source Edge Computing Raspberry Pi-based Clinical Screening System, MedRXiv, April 2020 
