@@ -62,14 +62,20 @@ for i in range(10000):
         yL = np.clip(k[0][1],0,120)
         xR = np.clip(k[1][0],0,160)
         yR = np.clip(k[1][1],0,120)
+        if xL+yL+xR+yR==0:
+            temps.append(0)
+            continue
         roi = flir_im[xR:xL,yR:yL]
         temp = np.sort(roi.flatten())[-5:].mean()
-        R = 580061
-        O = 25113
-        temp = 1428/np.log(R/(temp-O)+1) -273.15 
+#         # radiometric calibration when TLinear disabled
+#         R = 580061
+#         O = 25113
+#         temp = 1428/np.log(R/(temp-O)+1) -273.15 
+        temp = 0.0113*temp - 313.383
         temps.append(temp)
     # testing for thermal imaging
-    flir_im = 1428/np.log(R/(flir_im-O)+1) -273.15
+#     flir_im = 1428/np.log(R/(flir_im-O)+1) -273.15  # TLinear disabled
+    flir_im = 0.0113*flir_im - 313.383
     flir_out = draw_bounding_box(flir_im, transform_coords, temps)
     # plotting
     img_out = draw_bounding_box(np.array(img.convert('RGB')), coords, temps)
