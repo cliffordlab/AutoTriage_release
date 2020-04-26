@@ -21,6 +21,10 @@ sudo apt-get install libedgetpu1-std
 pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp37-cp37m-linux_armv7l.whl
 # edgetpu api
 sudo apt-get install python3-edgetpu
+# scipy, sklearn, spectrum
+pip3 install scipy
+pip3 install sklearn
+pip3 install spectrum
 
 PATH=$PATH:$root
 mkdir tmp 
