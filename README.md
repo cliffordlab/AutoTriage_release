@@ -17,7 +17,9 @@ Use the script: `setup.sh` to install the prerequisites.
 
 ## Execution 
 run `measure.py` for detecting cyanosis and temperature and displaying. After forced stop/ errors, `kill -9 $(pidof gst-launch-1.0)` should be used to reset the thermal camera before the next run. 
+
 Environmental temperature and humidity can measured with `dht22_sensor_toolbox.py`.
+
 Heart rate and respiratory effort estimation can be found in `./HeartRate_Respiration`, where `*_realtime_vis` provides read-time visualization of the detected areas, the `*_high_fs` scripts only plot the first image captured with detection, but provides higher sampling frequency. 
 
 ## Citation
