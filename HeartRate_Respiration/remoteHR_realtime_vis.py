@@ -15,6 +15,9 @@ from math import sqrt
 import time
 from scipy import interpolate
 import argparse
+from picamera import PiCamera
+import io
+from PIL import Image
 
 
 # set measurement time in second
@@ -35,14 +38,11 @@ def viola_jones(img):
     img1 = deepcopy(img)
     gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    if len(faces)==0:
+        raise ValueError('No Face detected')
     for (x,y,w,h) in faces:
-        #img = cv2.rectangle(img1,(x,y),(x+w,y+h),(255,0,0),2)
-        #img = cv2.rectangle(img,(int(x+w*0.2),int(y+h*0.5)),(int(x+w*0.8),int(y+h*0.9)), (0,255,0),2)
         img = cv2.rectangle(img1,(int(x+w*0.2),int(y+h*0.5)),(int(x+w*0.8),int(y+h*0.8)), (0,255,0),2)
-        #img =cv2.rectangle(img,(int(x+w*0.2),int(y)),(int(x+w*0.8),int(y+h*0.3)), (0,255,0),2)
         
-        #roi_gray = gray[y:y+h, x:x+w]
-        #roi_color = img[y:y+h, x:x+w]
     return img1, int(x+w*0.2), int(y+h*0.5), int(x+w*0.8), int(y+h*0.8), x, y, w, h
 
 ################################# Illumination Rectification ###############################
@@ -101,15 +101,24 @@ def moving_avg(signal, N): ########## CHECK, N is window length
     return moving_aves
     
 ################################# Open camera (webcam, RPi cam) ######################################
-cap = cv2.VideoCapture(0)
-if not (cap.isOpened()):
-    print("Could not open video device")
+# cap = cv2.VideoCapture(0)
+# if not (cap.isOpened()):
+#     print("Could not open video device")
+# # Set resolution
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+# # Get framerate
+# fps = round(cap.get(cv2.CAP_PROP_FPS))
 
-# Set resolution
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-# Get framerate
-fps = round(cap.get(cv2.CAP_PROP_FPS))
+# Picamera
+camera = PiCamera(resolution=(640, 480), framerate=40)
+fps = 6
+stream = io.BytesIO()
+# setting up plot canvas
+fig = plt.figure()
+ax = fig.add_subplot(1,1,1)
+fig.canvas.draw()
+plt.show(block=False)
 
 frame_count = 0
 G_bg = []
@@ -126,8 +135,10 @@ mean_HR = []
 RR = []
 time.sleep(0.1)
 start = time.time()
+flag = 0
 while(True):
-    ret, frame = cap.read()
+    camera.capture(stream, format='jpeg', use_video_port=True)
+    frame = np.array(Image.open(stream))
     frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
     frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
     
@@ -151,25 +162,25 @@ while(True):
         t_list.append(time.time()-start)
     else:
         print('time elapsed since last measurement: ' + str(time.time()-start))
-        print('Avg sampling freq: ' + str((time.time()-start)/frame_count)) 
+        print('Avg sampling freq: ' + str(frame_count/(time.time()-start))) 
         # Illumination rectification
         g_ir, h = illuminationRectification(h, mu, np.array(G_face), np.array(G_bg))
         # resample g_ir through interpolation
         fcubic = interpolate.interp1d(np.array(t_list), g_ir)
         t_new = np.linspace(t_list[0], t_list[-1], len(g_ir))
         g_ir_new = fcubic(t_new)
-        fps = round(frame_count / t_list[-1])
+        fps = frame_count / t_list[-1]
 
         #view_g_ir.append(g_ir)
         # Non rigid motion estimation
         nrme_inpt = np.array(g_ir)
         #nrme_inpt = nrme_inpt.reshape(nrme_inpt.shape[0]*nrme_inpt.shape[1])
-        nrme_g_ir = nrme(nrme_inpt, fps)
+        nrme_g_ir = nrme(nrme_inpt, round(fps))
         # Temporal Filtering
         detrend_g_ir = detrend(nrme_g_ir, type='constant') # Detrending filter
         movingavg_g_ir = moving_avg(detrend_g_ir, N=7) # Moving average filter
         f_nyquist = fps/2
-        hamming_coeffs = firwin(95, [0.7/f_nyquist, 4/f_nyquist], pass_zero=False) # Bandpass filter
+        hamming_coeffs = firwin(95, [0.7/f_nyquist, 2/f_nyquist], pass_zero=False) # Bandpass filter
                                                                       # numtaps is window length
         #hamming_g_ir = np.convolve(hamming_coeffs/hamming_coeffs.sum(), movingavg_g_ir, mode='valid')
         hamming_g_ir = np.convolve(hamming_coeffs, movingavg_g_ir, mode='full')
@@ -204,11 +215,22 @@ while(True):
         mean_HR = []
         h = 0.5
     
-        
-    cv2.imshow('HR', frame_bb)
+    if flag==0:
+        plot = ax.imshow(frame_bb)
+        bkg = fig.canvas.copy_from_bbox(ax.bbox)
+    else:
+        plot.set_data(frame_bb)
+        fig.canvas.restore_region(bkg)
+        ax.draw_artist(plot)
+        fig.canvas.blit(ax.bbox)
+    fig.canvas.flush_events()
+    stream.seek(0)
+    stream.truncate()
     
+    flag = 1
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+stream.close()
 cap.release()
 cv2.destroyAllWindows()

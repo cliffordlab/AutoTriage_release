@@ -11,9 +11,11 @@ from scipy.signal import detrend, firwin, welch, hilbert
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import time
-from spectrum import *
 import argparse
 from scipy import interpolate
+from picamera import PiCamera
+import io
+from PIL import Image
 
 # set measurement time in second
 parser = argparse.ArgumentParser(description='Set measurement time')
@@ -33,8 +35,6 @@ def viola_jones(img):
     gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray, 1.3, 5)
     for (x,y,w,h) in faces:
-        #img = cv2.rectangle(img1,(x,y),(x+w,y+h),(255,0,0),2)
-        #img = cv2.rectangle(img1,(int(x+w*0.25),int(y+h-0.05*h)),(int(x+w*0.75),int(y+h*1.3)), (0,255,0),2)
         img = cv2.rectangle(img1,(int(x-w*0.5),int(y+1.5*h)),(int(x+w*2*0.7),int(y+h*3)), (0,255,0),2)
 
     return img1, int(x+w*0.25), int(y+h-0.05*h), int(x+w*0.75), int(y+h*1.3), x, y, w, h
@@ -107,21 +107,21 @@ def diff_avg(diff_frames, fs):
         means.append(np.mean(diff_frames[i]))
         #avg += np.mean(diff_frames[i])
     #avg = avg/(len(diff_frames)-1)
-    hamming_coeffs_resp = firwin(95, [0.05/fs, 2.0/fs], pass_zero=False) # Bandpass filter
+    hamming_coeffs_resp = firwin(95, [0.05/fs/2, 1/fs/2], pass_zero=False) # Bandpass filter
                                                                       # numtaps is window length
     hamming = np.convolve(hamming_coeffs_resp, means, mode='full')
     return hamming
 
 ################################# Main ################################
-cap = cv2.VideoCapture(0)
-if not (cap.isOpened()):
-    print("Could not open video device")
-
-# Set resolution
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-# Get framerate
-fps = round(cap.get(cv2.CAP_PROP_FPS))
+# Picamera
+camera = PiCamera(resolution=(640, 480), framerate=40)
+fps = 5
+stream = io.BytesIO()
+# setting up plot canvas
+fig = plt.figure()
+ax = fig.add_subplot(1,1,1)
+fig.canvas.draw()
+plt.show(block=False)
 
 frame_count = 0
 diff_frames = []
@@ -131,9 +131,13 @@ samp_count = 0
 pic_count=0
 time.sleep(0.1)
 start = time.time()
+flag=0
 while(True):
-    ret, frame = cap.read()
+    camera.capture(stream, format='jpeg', use_video_port=True)
+    frame = np.array(Image.open(stream))
+    print(time.time()-start)
     frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
+    print(time.time()-start)
     frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
     if samp_count == sampling_num:
         if frame_count < measurement_time*sampling_freq: 
@@ -161,11 +165,23 @@ while(True):
         samp_count += 1
         pic_count+=1
     
-    cv2.imshow('HR', frame_bb)
-    if pic_count == 100:
+    if flag==0:
+        plot = ax.imshow(frame_bb)
+        bkg = fig.canvas.copy_from_bbox(ax.bbox)
+    else:
+        plot.set_data(frame_bb)
+        fig.canvas.restore_region(bkg)
+        ax.draw_artist(plot)
+        fig.canvas.blit(ax.bbox)
+    fig.canvas.flush_events()
+    stream.seek(0)
+    stream.truncate()
+    
+    if pic_count == 50:
         print('done')
         temp = frame_bb
     
+    flag=1
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
