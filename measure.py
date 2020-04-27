@@ -9,9 +9,9 @@ from detect_forehead import *
 from cyanosis_detection import predict_cyanosis 
 from pose_engine import PoseEngine
 import matplotlib.pyplot as plt
-from joblib import load 
+from joblib import load
 
-use_cv2 = False
+use_cv2 = True
 if use_cv2:
     cap = cv2.VideoCapture(1)
     cap.set(cv2.CAP_PROP_CONVERT_RGB, False)
@@ -32,14 +32,14 @@ fig.canvas.draw()
 plt.show(block=False)
 
 svc_clf = load('svc_model.joblib') 
-
-# about 1hr
-for i in range(10000):
+i=0
+while(True):
     start = time.time()
     # normal image
-    camera.capture(stream, format='jpeg', use_video_port=True)
+    camera.capture(stream, format='jpeg', use_video_port=True, resize=(641,481))
     img = Image.open(stream)
-    img = img.resize((641,481), Image.NEAREST)
+    print(time.time()-start)
+    # img = img.resize((641,481), Image.NEAREST) # cpu resize
     # get cordinates of faces
     # camera fov factor:
     # horizontal: np.tan(57/2*np.pi/180)/np.tan(31.1*np.pi/180) = 0.9
@@ -91,6 +91,9 @@ for i in range(10000):
     fig.canvas.flush_events()
     stream.seek(0)
     stream.truncate()
+    i=1
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 stream.close()
 if use_cv2:
     cap.release()
