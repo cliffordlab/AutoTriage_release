@@ -117,7 +117,7 @@ def diff_avg(diff_frames, fs):
 ################################# Main ################################
 # Picamera
 camera = PiCamera(resolution=(640, 480), framerate=40)
-fps = 5
+fps = 10
 stream = io.BytesIO()
 
 frame_count = 0
@@ -129,8 +129,7 @@ pic_count=0
 time.sleep(0.1)
 start = time.time()
 flag=0
-while(True):
-    camera.capture(stream, format='jpeg', use_video_port=True)
+for foo in camera.capture_continuous(stream, 'jpeg', use_video_port=True):
     frame = np.array(Image.open(stream))
     frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
     frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
@@ -146,7 +145,7 @@ while(True):
         if frame_count == measurement_time*sampling_freq:
             # estimate real fps
             real_sampling_freq = frame_count / (time.time()-start)
-            print(real_sampling_freq)
+            print('real freq is ' + str(real_sampling_freq))
             resp_effort = diff_avg(diff_frames, real_sampling_freq)
             f, PSD = welch(resp_effort, fs=real_sampling_freq, window='hamming', nperseg=len(resp_effort))
             plt.figure(); plt.plot(f,PSD); plt.xlabel('Freq in Hz'); plt.show()
@@ -155,7 +154,7 @@ while(True):
             frame_count = 0
             diff_frames = []
             start = time.time()
-            flag=1
+            flag=0
         samp_count = 0
     else:
         samp_count += 1
@@ -166,7 +165,7 @@ while(True):
         plt.pause(0.001)
     stream.seek(0)
     stream.truncate()
-    
+
     if pic_count == 50:
         print('done')
         temp = frame_bb
