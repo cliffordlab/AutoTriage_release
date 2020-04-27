@@ -13,8 +13,13 @@ AutoTriage - An Open Source Edge Computing Raspberry Pi-based Clinical Screening
 ## Software Prerequisites
 python3, gstreamer, v4l2, tflite, opencv, Adafruit_DHT are required. 
 Install latest NOOBs, enable camera.  
-use the script: `setup.sh` to install the prerequisites.
-run `measure.py` for detecting and displaying. After forced stop/ errors, `kill -9 $(pidof gst-launch-1.0)` should be used to reset the thermal camera before the next run. 
+Use the script: `setup.sh` to install the prerequisites.
 
+## Execution 
+run `measure.py` for detecting cyanosis and temperature and displaying. After forced stop/ errors, `kill -9 $(pidof gst-launch-1.0)` should be used to reset the thermal camera before the next run. 
+Environmental temperature and humidity can measured with `dht22_sensor_toolbox.py`.
+Heart rate and respiratory effort estimation can be found in `./HeartRate_Respiration`, where `*_realtime_vis` provides read-time visualization of the detected areas, the `*_high_fs` scripts only plot the first image captured with detection, but provides higher sampling frequency. 
+
+## Citation
 Please cite thge following when using:
 Chaitra Hegde, Zifan Jiang, Jacob Zelko, Pradyumna Byappanahalli Suresha, Rishikesan Kamaleswaran, Matt A. Reyna and Gari D. Clifford, AutoTriage - An Open Source Edge Computing Raspberry Pi-based Clinical Screening System, MedRXiv, April 2020 
