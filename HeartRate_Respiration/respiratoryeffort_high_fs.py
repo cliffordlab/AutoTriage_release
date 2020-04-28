@@ -36,15 +36,12 @@ measurement_time = args.t
 engine = PoseEngine('../forehead_detection/models/posenet_mobilenet_v1_075_481_641_quant_decoder_edgetpu.tflite')
 
 def viola_jones(img):
-    img1 = deepcopy(img)
-    gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray, 1.3, 5)
-    if len(faces)==0:
-        raise ValueError('No thorax detected')
     for (x,y,w,h) in faces:
-        img = cv2.rectangle(img1,(int(x-w*0.5),int(y+1.5*h)),(int(x+w*2*0.7),int(y+h*3)), (0,255,0),2)
+        img = cv2.rectangle(img,(int(x-w*0.5),int(y+1.5*h)),(int(x+w*2*0.7),int(y+h*3)), (0,255,0),2)
 
-    return img1, int(x+w*0.25), int(y+h-0.05*h), int(x+w*0.75), int(y+h*1.3), x, y, w, h
+    return img, int(x+w*0.25), int(y+h-0.05*h), int(x+w*0.75), int(y+h*1.3), x, y, w, h
 
 
 ################################### First difference between each pixel ##############################
@@ -77,15 +74,15 @@ def pixel_diff(roi, prev_roi):
         
     elif roi_x_pad%2 == 0 and roi_y_pad%2 != 0:
         #new_roi[int(roi_x_pad/2):-int(roi_x_pad/2),int(np.floor(roi_y_pad/2)):-int(np.floor(roi_y_pad/2)+1),:] = roi
-        new_roi[int(roi_x_pad/2):int(roi_x_pad/2)+x1, int(np.floor(roi_y_pad/2)):int(np.floor(roi_y_pad/2))+y1, :] = roi
+        new_roi[int(roi_x_pad/2):int(roi_x_pad/2)+x1, int(roi_y_pad/2):int(roi_y_pad/2)+y1, :] = roi
     
     elif roi_x_pad%2 != 0 and roi_y_pad%2 == 0:
         #new_roi[int(np.floor(roi_x_pad/2)):-int(np.floor(roi_x_pad/2)+1),int(roi_y_pad/2):-int(roi_y_pad/2),:] = roi
-        new_roi[int(np.floor(roi_x_pad/2)):int(np.floor(roi_x_pad/2))+x1, int(roi_y_pad/2):int(roi_y_pad/2)+y1, :] = roi
+        new_roi[int(roi_x_pad/2):int(roi_x_pad/2)+x1, int(roi_y_pad/2):int(roi_y_pad/2)+y1, :] = roi
     
     elif roi_x_pad%2 != 0 and roi_y_pad%2 != 0:
         #new_roi[int(np.floor(roi_x_pad/2)):-int(np.floor(roi_x_pad/2)+1),int(np.floor(roi_y_pad/2)):-int(np.floor(roi_y_pad/2)+1),:] = roi
-        new_roi[int(np.floor(roi_x_pad/2)):int(np.floor(roi_x_pad/2))+x1, int(np.floor(roi_y_pad/2)):int(np.floor(roi_y_pad/2))+y1, :] = roi
+        new_roi[int(roi_x_pad/2):int(roi_x_pad/2)+x1, int(roi_y_pad/2):int(roi_y_pad/2)+y1, :] = roi
 
 
 
@@ -95,34 +92,31 @@ def pixel_diff(roi, prev_roi):
 
     elif prev_roi_x_pad%2 == 0 and prev_roi_y_pad%2 != 0:
         #new_prev_roi[int(prev_roi_x_pad/2):-int(prev_roi_x_pad/2),int(np.floor(prev_roi_y_pad/2)):-int(np.floor(prev_roi_y_pad/2)+1),:] = prev_roi
-        new_prev_roi[int(prev_roi_x_pad/2):int(prev_roi_x_pad/2)+x2, int(np.floor(prev_roi_y_pad/2)):int(np.floor(prev_roi_y_pad/2))+y2, :] = prev_roi
+        new_prev_roi[int(prev_roi_x_pad/2):int(prev_roi_x_pad/2)+x2, int(prev_roi_y_pad/2):int(prev_roi_y_pad/2)+y2, :] = prev_roi
 
     elif prev_roi_x_pad%2 != 0 and prev_roi_y_pad%2 == 0:
         #new_prev_roi[int(np.floor(prev_roi_x_pad/2)):-int(np.floor(prev_roi_x_pad/2)+1),int(prev_roi_y_pad/2):-int(prev_roi_y_pad/2),:] = prev_roi
-        new_prev_roi[int(np.floor(prev_roi_x_pad/2)):int(np.floor(prev_roi_x_pad/2))+x2, int(prev_roi_y_pad/2):int(prev_roi_y_pad/2)+y2, :] = prev_roi
+        new_prev_roi[int(prev_roi_x_pad/2):int(prev_roi_x_pad/2)+x2, int(prev_roi_y_pad/2):int(prev_roi_y_pad/2)+y2, :] = prev_roi
     
     elif prev_roi_x_pad%2 != 0 and prev_roi_y_pad%2 != 0:
         #new_prev_roi[int(np.floor(prev_roi_x_pad/2)):-int(np.floor(prev_roi_x_pad/2)+1),int(np.floor(prev_roi_y_pad/2)):-int(np.floor(prev_roi_y_pad/2)+1),:] = prev_roi
-        new_prev_roi[int(np.floor(prev_roi_x_pad/2)):int(np.floor(prev_roi_x_pad/2))+x2, int(np.floor(prev_roi_y_pad/2)):int(np.floor(prev_roi_y_pad/2))+y2, :] = prev_roi
+        new_prev_roi[int(prev_roi_x_pad/2):int(prev_roi_x_pad/2)+x2, int(prev_roi_y_pad/2):int(prev_roi_y_pad/2)+y2, :] = prev_roi
             
     return abs(new_roi - new_prev_roi)
 
 def diff_avg(diff_frames, fs):
-    #avg = 0
     means = []
     for i in range(1,len(diff_frames)): # To remove diff of first frame with itself
         means.append(np.mean(diff_frames[i]))
-        #avg += np.mean(diff_frames[i])
-    #avg = avg/(len(diff_frames)-1)
-    hamming_coeffs_resp = firwin(95, [0.05/fs/2, 1/fs/2], pass_zero=False) # Bandpass filter
-                                                                      # numtaps is window length
-    hamming = np.convolve(hamming_coeffs_resp, means, mode='full')
+    hamming_coeffs_resp = firwin(65, [0.05/(fs/2), 2.0/(fs/2)], pass_zero=False) # Bandpass filter
+    hamming = np.convolve(hamming_coeffs_resp, means, mode='same')
+
     return hamming
 
 ################################# Main ################################
 # Picamera
 camera = PiCamera(resolution=(640, 480), framerate=40)
-fps = 10
+fps = 5
 stream = io.BytesIO()
 
 frame_count = 0
