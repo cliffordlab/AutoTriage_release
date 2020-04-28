@@ -14,8 +14,11 @@ import time
 import argparse
 from scipy import interpolate
 from picamera import PiCamera
-import io
+import io, sys
 from PIL import Image
+sys.path.append('../forehead_detection')
+from detect_forehead import *
+from pose_engine import PoseEngine
 
 # set measurement time in second
 parser = argparse.ArgumentParser(description='Set measurement time')
@@ -25,10 +28,12 @@ args = parser.parse_args()
 
 measurement_time = args.t
 
-############################## Viola-Jones Face Detection - Change to PoseNet #############################
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
-mouth_cascade = cv2.CascadeClassifier('haarcascade_smile.xml')
+# ############################## Viola-Jones Face Detection #############################
+# face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+# eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
+# mouth_cascade = cv2.CascadeClassifier('haarcascade_smile.xml')
+
+engine = PoseEngine('../forehead_detection/models/posenet_mobilenet_v1_075_481_641_quant_decoder_edgetpu.tflite')
 
 def viola_jones(img):
     img1 = deepcopy(img)
@@ -135,10 +140,15 @@ flag=0
 while(True):
     camera.capture(stream, format='jpeg', use_video_port=True)
     frame = np.array(Image.open(stream))
-    print(time.time()-start)
-    frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
-    print(time.time()-start)
-    frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
+    # VJ
+    # frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
+    # frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
+    # openpose
+    _, _, chest_coords = detect_roi_coords(engine, frame)
+    x1, y1 = chest_coords[0][0]
+    x2, y2 = chest_coords[0][1]
+    frame_roi = frame[x2:x1, y1:y2]
+    
     if samp_count == sampling_num:
         if frame_count < measurement_time*sampling_freq: 
             if frame_count == 0:
@@ -165,6 +175,8 @@ while(True):
         samp_count += 1
         pic_count+=1
     
+    chest_coords[0] = ((x1, y1), (x2, y2))
+    frame_bb = draw_bounding_box(frame, chest_coords, np.zeros(10))
     if flag==0:
         plot = ax.imshow(frame_bb)
         bkg = fig.canvas.copy_from_bbox(ax.bbox)

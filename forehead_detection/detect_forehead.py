@@ -52,6 +52,36 @@ def forehead_coords(engine, img, thermal_shape, h, v, im_x=641, im_y=481):
         
     return forehead_keypoints, transformed_keypoints, lips_keypoints
 
+def detect_roi_coords(engine, img):
+    
+    # Posenet getting keypoints
+    pil_image = img
+    # engine = PoseEngine('./forehead_detection/models/posenet_mobilenet_v1_075_481_641_quant_decoder_edgetpu.tflite')
+    poses, keypoints, img, inference_time = engine.DetectPosesInImage(np.uint8(pil_image),0)
+    # Getting forehead coordinates for 10 people in frame (NOTE: posenet currently processes a maximum of 10 people in the frame)
+    keypoints_eyes = (keypoints[:,1,:], keypoints[:,2,:])
+    keypoints_shoulders = (keypoints[:,5,:], keypoints[:,6,:])
+    forehead_keypoints = []
+    face_keypoints = []
+    roi_keypoints = []
+    shldr_keypoints = []
+    for i in range(10):
+        dist = abs(keypoints_eyes[0][i][1]-keypoints_eyes[1][i][1])
+        # Format: ((left_eye_x, left_eye_y), (right_eye_x, right_eye_y+offset)) offset is the distance wanted above the eyes.
+        forehead_keypoints.append([(int(keypoints_eyes[0][i][1]+dist*0.5),int(keypoints_eyes[0][i][0]+dist*0.2)), (int(keypoints_eyes[1][i][1]-dist*0.5), int(keypoints_eyes[1][i][0]-dist*1.5))])     
+        # Face coords for HR detection
+        eye_dist = abs(keypoints_eyes[0][i][1]-keypoints_eyes[1][i][1])
+        roi_keypoints.append([(int(keypoints_eyes[0][i][1])+ 0.2*eye_dist,int(keypoints_eyes[0][i][0]+0.2*eye_dist)),
+                               (int(keypoints_eyes[1][i][1])-0.2*eye_dist, int(keypoints_eyes[1][i][0]+1*eye_dist))]) # for smaller region of face used for HR ets
+        face_keypoints.append([(int(keypoints_eyes[0][i][1])-0.5*eye_dist,int(keypoints_eyes[0][i][0]-eye_dist)),
+                               (int(keypoints_eyes[1][i][1])+0.5*eye_dist, int(keypoints_eyes[1][i][0]+2*eye_dist))])
+        
+        # Chest coords
+        shoulder_dist = abs(keypoints_shoulders[0][i][1]-keypoints_shoulders[1][i][1])
+        shldr_keypoints.append([(int(keypoints_shoulders[0][i][1]),int(keypoints_shoulders[0][i][0])),
+                               (int(keypoints_shoulders[1][i][1]), int(keypoints_shoulders[1][i][0]+1.5*shoulder_dist))])
+        
+    return face_keypoints, roi_keypoints, shldr_keypoints
 
 def draw_bounding_box(input_img, forehead_keypoints, temps):
     
@@ -81,7 +111,8 @@ def draw_bounding_box(input_img, forehead_keypoints, temps):
             text = '{:.1f}'.format(temp)
             ftemp = '{:.1f}'.format(ftemp)
             txt = str(text) + 'C/' + ftemp + 'F'
-            cv2.putText(img_out, txt, (forehead_keypoints[i][1][0], forehead_keypoints[i][1][1]), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+            if temp != 0:
+                cv2.putText(img_out, txt, (forehead_keypoints[i][1][0], forehead_keypoints[i][1][1]), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                         COLOR_GR, 2)
     return img_out
 

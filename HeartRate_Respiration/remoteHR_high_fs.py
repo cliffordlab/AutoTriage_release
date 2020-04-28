@@ -16,8 +16,11 @@ import time
 from scipy import interpolate
 import argparse
 from picamera import PiCamera
-import io
+import io, sys
 from PIL import Image
+sys.path.append('../forehead_detection')
+from detect_forehead import *
+from pose_engine import PoseEngine
 
 
 # set measurement time in second
@@ -28,11 +31,12 @@ args = parser.parse_args()
 
 measurement_time = args.t
 measurement_time_agg = args.total
+engine = PoseEngine('../forehead_detection/models/posenet_mobilenet_v1_075_481_641_quant_decoder_edgetpu.tflite')
 
-#################### Viola-Jones Face Detection - Change to PoseNet ##################
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
-mouth_cascade = cv2.CascadeClassifier('haarcascade_smile.xml')
+# #################### Viola-Jones Face Detection  ##################
+# face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+# eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
+# mouth_cascade = cv2.CascadeClassifier('haarcascade_smile.xml')
 
 def viola_jones(img):
     img1 = deepcopy(img)
@@ -101,7 +105,7 @@ def moving_avg(signal, N): ########## CHECK, N is window length
     return moving_aves
 
 # For illumination rectification
-def illum_rect(frame_roi, frame, fx, fy, fw, fh):
+def illum_rect_VJ(frame_roi, frame, fx, fy, fw, fh):
     g_face = np.mean(frame_roi[:,:,1].reshape((frame_roi[:,:,1].shape[0]*frame_roi[:,:,1].shape[1])))
     pixels_bg = frame[0:fy,0:fx,1].reshape(frame[0:fy,0:fx,1].shape[0]*frame[0:fy,0:fx,1].shape[1])
     pixels_bg = np.concatenate((pixels_bg,frame[fx:fx+fw,0:fy,1].reshape(frame[fx:fx+fw,0:fy,1].shape[0]*frame[fx:fx+fw,0:fy,1].shape[1])))
@@ -114,6 +118,19 @@ def illum_rect(frame_roi, frame, fx, fy, fw, fh):
     g_bg = np.mean(pixels_bg)
     return g_face, g_bg
 
+def illum_rect(frame_roi, frame, x1, y1, x2, y2):
+    g_face = np.mean(frame_roi[:,:,1].reshape((frame_roi[:,:,1].shape[0]*frame_roi[:,:,1].shape[1])))
+    pixels_bg = frame[0:y1,0:x1,1].reshape(frame[0:y1,0:x1,1].shape[0]*frame[0:y1,0:x1,1].shape[1])
+    pixels_bg = np.concatenate((pixels_bg,frame[y1:y2,0:x1,1].reshape(frame[y1:y2,0:x1,1].shape[0]*frame[y1:y2,0:x1,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[y2:-1,0:x1,1].reshape(frame[y2:-1,0:x1,1].shape[0]*frame[y2:-1,0:x1,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[0:y1,x1:x2,1].reshape(frame[0:y1,x1:x2,1].shape[0]*frame[0:y1,x1:x2,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[y2:-1,x1:x2,1].reshape(frame[y2:-1,x1:x2,1].shape[0]*frame[y2:-1,x1:x2,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[0:y1,x2:-1,1].reshape(frame[0:y1, x2:-1,1].shape[0]*frame[0:y1, x2:-1,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[y1:y2,x2:-1,1].reshape(frame[y1:y2,x2:-1,1].shape[0]*frame[y1:y2,x2:-1,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[y2:-1,x2:-1,1].reshape(frame[y2:-1,x2:-1,1].shape[0]*frame[y2:-1,x2:-1,1].shape[1])))
+    g_bg = np.mean(pixels_bg)
+    return g_face, g_bg
+                  
 ################################# Open camera (webcam, RPi cam) ######################################
 # cap = cv2.VideoCapture(0)
 # if not (cap.isOpened()):
@@ -153,9 +170,19 @@ flag = 0
 while(True):
     for foo in camera.capture_continuous(stream, 'jpeg', use_video_port=True):
             frame = np.array(Image.open(stream))
-            frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
-            frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
-            g_face, g_bg = illum_rect(frame_roi, frame, fx, fy, fw, fh)
+            # VJ
+#             frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
+#             frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
+            # detection with PoseNet
+            face_coords, roi_coords, _ = detect_roi_coords(engine, frame)
+            x1, y1 = face_coords[0][0]
+            x2, y2 = face_coords[0][1]
+            small_x1, small_y1 = roi_coords[0][0]
+            small_x2, small_y2 = roi_coords[0][1]
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            small_x1, small_y1, small_x2, small_y2 = int(small_x1), int(small_y1), int(small_x2), int(small_y2)
+            frame_roi = frame[small_x2:small_x1, small_y1:small_y2]
+            g_face, g_bg = illum_rect(frame_roi, frame, x1,y1,x2,y2)
             G_bg.append(g_bg)
             G_face.append(g_face)
             frame_count += 1
@@ -163,6 +190,9 @@ while(True):
             t_list.append(time.time()-start)
             stream.seek(0)
             stream.truncate()
+            # plotting
+            roi_coords[0] = ((small_x1, small_y1), (small_x2, small_y2))
+            frame_bb = draw_bounding_box(frame, roi_coords, np.zeros(10))
             if flag==0:
                 plt.imshow(frame_bb)
                 plt.pause(0.001)

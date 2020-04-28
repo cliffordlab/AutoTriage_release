@@ -16,23 +16,27 @@ import time
 from scipy import interpolate
 import argparse
 from picamera import PiCamera
-import io
+import io, sys
 from PIL import Image
+sys.path.append('../forehead_detection')
+from detect_forehead import *
+from pose_engine import PoseEngine
 
 
 # set measurement time in second
 parser = argparse.ArgumentParser(description='Set measurement time')
-parser.add_argument('--t', type=int, default=20, help='set the length of time for one measurement')
+parser.add_argument('--t', type=int, default=30, help='set the length of time for one measurement')
 parser.add_argument('--total', type=int, default=60, help='set the total length of time for monitoring')
 args = parser.parse_args()
 
 measurement_time = args.t
 measurement_time_agg = args.total
+engine = PoseEngine('../forehead_detection/models/posenet_mobilenet_v1_075_481_641_quant_decoder_edgetpu.tflite')
 
-#################### Viola-Jones Face Detection - Change to PoseNet ##################
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
-mouth_cascade = cv2.CascadeClassifier('haarcascade_smile.xml')
+# #################### Viola-Jones Face Detection ##################
+# face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+# eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
+# mouth_cascade = cv2.CascadeClassifier('haarcascade_smile.xml')
 
 def viola_jones(img):
     img1 = deepcopy(img)
@@ -139,21 +143,43 @@ flag = 0
 while(True):
     camera.capture(stream, format='jpeg', use_video_port=True)
     frame = np.array(Image.open(stream))
-    frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
-    frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
     
+    # detection with V-J
+    # frame_bb, roi_x, roi_y, roi_w, roi_h, fx, fy, fw, fh = viola_jones(frame)
+    # frame_roi = frame[roi_y:roi_h, roi_x:roi_w]
+#     # For illumination rectification
+#     g_face = np.mean(frame_roi[:,:,1].reshape((frame_roi[:,:,1].shape[0]*frame_roi[:,:,1].shape[1])))
+#     pixels_bg = frame[0:fy,0:fx,1].reshape(frame[0:fy,0:fx,1].shape[0]*frame[0:fy,0:fx,1].shape[1])
+#     pixels_bg = np.concatenate((pixels_bg,frame[fx:fx+fw,0:fy,1].reshape(frame[fx:fx+fw,0:fy,1].shape[0]*frame[fx:fx+fw,0:fy,1].shape[1])))
+#     pixels_bg = np.concatenate((pixels_bg,frame[0:fy,fx+fw:-1,1].reshape(frame[0:fy,fx+fw:-1,1].shape[0]*frame[0:fy,fx+fw:-1,1].shape[1])))
+#     pixels_bg = np.concatenate((pixels_bg,frame[fy:fy+fh,0:fx,1].reshape(frame[fy:fy+fh,0:fx,1].shape[0]*frame[fy:fy+fh,0:fx,1].shape[1])))
+#     pixels_bg = np.concatenate((pixels_bg,frame[fy:fy+fh,fx+fw:-1,1].reshape(frame[fy:fy+fh,fx+fw:-1,1].shape[0]*frame[fy:fy+fh,fx+fw:-1,1].shape[1])))
+#     pixels_bg = np.concatenate((pixels_bg,frame[fy+fh:-1,0:fx,1].reshape(frame[fy+fh:-1,0:fx,1].shape[0]*frame[fy+fh:-1,0:fx,1].shape[1])))
+#     pixels_bg = np.concatenate((pixels_bg,frame[fy+fh:-1,fx:fx+fw,1].reshape(frame[fy+fh:-1,fx:fx+fw,1].shape[0]*frame[fy+fh:-1,fx:fx+fw,1].shape[1])))
+#     pixels_bg = np.concatenate((pixels_bg,frame[fy+fh:-1,fx+fw:-1,1].reshape(frame[fy+fh:-1,fx+fw:-1,1].shape[0]*frame[fy+fh:-1,fx+fw:-1,1].shape[1])))
+#     g_bg = np.mean(pixels_bg)
+    
+    # detection with PoseNet
+    face_coords, roi_coords, _ = detect_roi_coords(engine, frame)
+    x1, y1 = face_coords[0][0]
+    x2, y2 = face_coords[0][1]
+    small_x1, small_y1 = roi_coords[0][0]
+    small_x2, small_y2 = roi_coords[0][1]
+    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+    small_x1, small_y1, small_x2, small_y2 = int(small_x1), int(small_y1), int(small_x2), int(small_y2)
+    frame_roi = frame[small_x2:small_x1, small_y1:small_y2]
     # For illumination rectification
     g_face = np.mean(frame_roi[:,:,1].reshape((frame_roi[:,:,1].shape[0]*frame_roi[:,:,1].shape[1])))
-    pixels_bg = frame[0:fy,0:fx,1].reshape(frame[0:fy,0:fx,1].shape[0]*frame[0:fy,0:fx,1].shape[1])
-    pixels_bg = np.concatenate((pixels_bg,frame[fx:fx+fw,0:fy,1].reshape(frame[fx:fx+fw,0:fy,1].shape[0]*frame[fx:fx+fw,0:fy,1].shape[1])))
-    pixels_bg = np.concatenate((pixels_bg,frame[0:fy,fx+fw:-1,1].reshape(frame[0:fy,fx+fw:-1,1].shape[0]*frame[0:fy,fx+fw:-1,1].shape[1])))
-    pixels_bg = np.concatenate((pixels_bg,frame[fy:fy+fh,0:fx,1].reshape(frame[fy:fy+fh,0:fx,1].shape[0]*frame[fy:fy+fh,0:fx,1].shape[1])))
-    pixels_bg = np.concatenate((pixels_bg,frame[fy:fy+fh,fx+fw:-1,1].reshape(frame[fy:fy+fh,fx+fw:-1,1].shape[0]*frame[fy:fy+fh,fx+fw:-1,1].shape[1])))
-    pixels_bg = np.concatenate((pixels_bg,frame[fy+fh:-1,0:fx,1].reshape(frame[fy+fh:-1,0:fx,1].shape[0]*frame[fy+fh:-1,0:fx,1].shape[1])))
-    pixels_bg = np.concatenate((pixels_bg,frame[fy+fh:-1,fx:fx+fw,1].reshape(frame[fy+fh:-1,fx:fx+fw,1].shape[0]*frame[fy+fh:-1,fx:fx+fw,1].shape[1])))
-    pixels_bg = np.concatenate((pixels_bg,frame[fy+fh:-1,fx+fw:-1,1].reshape(frame[fy+fh:-1,fx+fw:-1,1].shape[0]*frame[fy+fh:-1,fx+fw:-1,1].shape[1])))
+    pixels_bg = frame[0:y1,0:x1,1].reshape(frame[0:y1,0:x1,1].shape[0]*frame[0:y1,0:x1,1].shape[1])
+    pixels_bg = np.concatenate((pixels_bg,frame[y1:y2,0:x1,1].reshape(frame[y1:y2,0:x1,1].shape[0]*frame[y1:y2,0:x1,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[y2:-1,0:x1,1].reshape(frame[y2:-1,0:x1,1].shape[0]*frame[y2:-1,0:x1,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[0:y1,x1:x2,1].reshape(frame[0:y1,x1:x2,1].shape[0]*frame[0:y1,x1:x2,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[y2:-1,x1:x2,1].reshape(frame[y2:-1,x1:x2,1].shape[0]*frame[y2:-1,x1:x2,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[0:y1,x2:-1,1].reshape(frame[0:y1, x2:-1,1].shape[0]*frame[0:y1, x2:-1,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[y1:y2,x2:-1,1].reshape(frame[y1:y2,x2:-1,1].shape[0]*frame[y1:y2,x2:-1,1].shape[1])))
+    pixels_bg = np.concatenate((pixels_bg,frame[y2:-1,x2:-1,1].reshape(frame[y2:-1,x2:-1,1].shape[0]*frame[y2:-1,x2:-1,1].shape[1])))
     g_bg = np.mean(pixels_bg)
-    
+
     if frame_count < fps*measurement_time:
         G_bg.append(g_bg)
         G_face.append(g_face)
@@ -173,7 +199,7 @@ while(True):
 
         #view_g_ir.append(g_ir)
         # Non rigid motion estimation
-        nrme_inpt = np.array(g_ir)
+        nrme_inpt = np.array(g_ir_new)
         #nrme_inpt = nrme_inpt.reshape(nrme_inpt.shape[0]*nrme_inpt.shape[1])
         nrme_g_ir = nrme(nrme_inpt, round(fps))
         # Temporal Filtering
@@ -208,13 +234,15 @@ while(True):
         t_list = []
         
         
-    if hr_count == fps*measurement_time_agg:
+    if hr_count == round(fps)*measurement_time_agg:
         final_HR = np.mean(mean_HR)
         print('mean HR: ', final_HR)
         hr_count = 0
         mean_HR = []
         h = 0.5
     
+    roi_coords[0] = ((small_x1, small_y1), (small_x2, small_y2))
+    frame_bb = draw_bounding_box(frame, roi_coords, np.zeros(10))
     if flag==0:
         plot = ax.imshow(frame_bb)
         bkg = fig.canvas.copy_from_bbox(ax.bbox)
