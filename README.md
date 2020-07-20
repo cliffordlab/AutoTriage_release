@@ -24,7 +24,7 @@ Heart rate and respiratory effort estimation can be found in `./HeartRate_Respir
 
 ## Citation
 Please cite the following when using:
-'''
+```
 article {Hegde2020.04.09.20059840,
 	author = {Hegde, Chaitra and Jiang, Zifan and Suresha, Pradyumna Byappanahalli and Zelko, Jacob and Seyedi, Salman and Smith, Monique A and Wright, David W and Kamaleswaran, Rishikesan and Reyna, Matt A. and Clifford, Gari D},
 	title = {AutoTriage - An Open Source Edge Computing Raspberry Pi-based Clinical Screening System},
@@ -36,4 +36,4 @@ article {Hegde2020.04.09.20059840,
 	eprint = {https://www.medrxiv.org/content/early/2020/04/30/2020.04.09.20059840.full.pdf},
 	journal = {medRxiv}
 }
-'''
+```
