@@ -23,5 +23,17 @@ Environmental temperature and humidity can measured with `dht22_sensor_toolbox.p
 Heart rate and respiratory effort estimation can be found in `./HeartRate_Respiration`, where `*_realtime_vis` provides read-time visualization of the detected areas, the `*_high_fs` scripts only plot the first image captured with detection, but provides higher sampling frequency. 
 
 ## Citation
-Please cite thge following when using:
-Chaitra Hegde, Zifan Jiang, Jacob Zelko, Pradyumna Byappanahalli Suresha, Rishikesan Kamaleswaran, Matt A. Reyna and Gari D. Clifford, AutoTriage - An Open Source Edge Computing Raspberry Pi-based Clinical Screening System, MedRXiv, April 2020 
+Please cite the following when using:
+'''
+article {Hegde2020.04.09.20059840,
+	author = {Hegde, Chaitra and Jiang, Zifan and Suresha, Pradyumna Byappanahalli and Zelko, Jacob and Seyedi, Salman and Smith, Monique A and Wright, David W and Kamaleswaran, Rishikesan and Reyna, Matt A. and Clifford, Gari D},
+	title = {AutoTriage - An Open Source Edge Computing Raspberry Pi-based Clinical Screening System},
+	elocation-id = {2020.04.09.20059840},
+	year = {2020},
+	doi = {10.1101/2020.04.09.20059840},
+	publisher = {Cold Spring Harbor Laboratory Press},
+	URL = {https://www.medrxiv.org/content/early/2020/04/30/2020.04.09.20059840},
+	eprint = {https://www.medrxiv.org/content/early/2020/04/30/2020.04.09.20059840.full.pdf},
+	journal = {medRxiv}
+}
+'''
