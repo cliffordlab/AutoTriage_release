@@ -1,0 +1,4 @@
+#!/bin/bash
+
+filepath="./"$1".pnm"
+gst-launch-1.0 v4l2src device=/dev/video1 num-buffers=1 ! video/x-raw,format=GRAY16_LE ! pnmenc ! filesink location=$filepath
